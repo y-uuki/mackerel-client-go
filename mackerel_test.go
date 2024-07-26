@@ -2,6 +2,8 @@ package mackerel
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRequest(t *testing.T) {
@@ -74,6 +77,24 @@ func Test_requestInternal(t *testing.T) {
 				t.Errorf("response is invalid %v", res)
 			}
 		})
+	}
+}
+
+func Test_requestInternalContext_cancel(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		time.Sleep(1 * time.Second)
+		fmt.Fprint(res, "ok")
+	}))
+	t.Cleanup(ts.Close)
+
+	client, _ := NewClientWithOptions("dummy-key", ts.URL, false)
+	ctx, cancel := context.WithCancelCause(context.Background())
+	expectedErr := errors.New("expected error")
+	cancel(expectedErr)
+
+	_, _, err := requestInternalContext[struct{}](ctx, client, "GET", "/", nil, nil)
+	if cause := context.Cause(ctx); err == nil || !errors.Is(cause, expectedErr) {
+		t.Errorf("got %v; want %v", cause, expectedErr)
 	}
 }
 

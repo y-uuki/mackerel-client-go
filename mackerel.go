@@ -2,6 +2,7 @@ package mackerel
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -131,68 +132,35 @@ func (c *Client) Request(req *http.Request) (resp *http.Response, err error) {
 }
 
 func requestGet[T any](client *Client, path string) (*T, error) {
-	return requestNoBody[T](client, http.MethodGet, path, nil)
+	return requestGetContext[T](context.Background(), client, path)
 }
 
 func requestGetWithParams[T any](client *Client, path string, params url.Values) (*T, error) {
-	return requestNoBody[T](client, http.MethodGet, path, params)
+	return requestGetWithParamsContext[T](context.Background(), client, path, params)
 }
 
 func requestGetAndReturnHeader[T any](client *Client, path string) (*T, http.Header, error) {
-	return requestInternal[T](client, http.MethodGet, path, nil, nil)
+	return requestGetAndReturnHeaderContext[T](context.Background(), client, path)
 }
 
 func requestPost[T any](client *Client, path string, payload any) (*T, error) {
-	return requestJSON[T](client, http.MethodPost, path, payload)
+	return requestPostContext[T](context.Background(), client, path, payload)
 }
 
 func requestPut[T any](client *Client, path string, payload any) (*T, error) {
-	return requestJSON[T](client, http.MethodPut, path, payload)
+	return requestPutContext[T](context.Background(), client, path, payload)
 }
 
 func requestDelete[T any](client *Client, path string) (*T, error) {
-	return requestNoBody[T](client, http.MethodDelete, path, nil)
+	return requestDeleteContext[T](context.Background(), client, path)
 }
 
 func requestJSON[T any](client *Client, method, path string, payload any) (*T, error) {
-	var body bytes.Buffer
-	err := json.NewEncoder(&body).Encode(payload)
-	if err != nil {
-		return nil, err
-	}
-	data, _, err := requestInternal[T](client, method, path, nil, &body)
-	return data, err
-}
-
-func requestNoBody[T any](client *Client, method, path string, params url.Values) (*T, error) {
-	data, _, err := requestInternal[T](client, method, path, params, nil)
-	return data, err
+	return requestJSONContext[T](context.Background(), client, method, path, payload)
 }
 
 func requestInternal[T any](client *Client, method, path string, params url.Values, body io.Reader) (*T, http.Header, error) {
-	req, err := http.NewRequest(method, client.urlFor(path, params).String(), body)
-	if err != nil {
-		return nil, nil, err
-	}
-	if body != nil || method != http.MethodGet {
-		req.Header.Add("Content-Type", "application/json")
-	}
-
-	resp, err := client.Request(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		io.Copy(io.Discard, resp.Body) // nolint
-		resp.Body.Close()
-	}()
-
-	var data T
-	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &data, resp.Header, nil
+	return requestInternalContext[T](context.Background(), client, method, path, params, body)
 }
 
 func (c *Client) compatRequestJSON(method string, path string, payload interface{}) (*http.Response, error) {
