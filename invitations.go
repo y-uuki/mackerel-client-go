@@ -17,3 +17,8 @@ func (c *Client) FindInvitations() ([]*Invitation, error) {
 	}
 	return data.Invitations, nil
 }
+
+// CreateInvitation creates a invitation.
+func (c *Client) CreateInvitation(param *Invitation) (*Invitation, error) {
+	return requestPost[Invitation](c, "/api/v0/invitations", param)
+}
